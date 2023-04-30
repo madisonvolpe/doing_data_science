@@ -151,10 +151,26 @@ for (i in 1:length(i_files)){
   
 }
 
+# bind datasets together save final dataset of all files to csv
 final_stats_df <- bind_rows(final_stats)
 final_stats_df <- final_stats_df %>%
   arrange(str_rank(nyt_filename, numeric = T)) %>% 
-  mutate(nyt_file_order = str_extract(nyt_filename, "\\d+"))
+  mutate(nyt_file_order = as.numeric(str_extract(nyt_filename, "\\d+")))
+write_csv(final_stats_df, here("dds_datasets", "dds_ch2_nyt", "all_nyt_ds_stats.csv"))
+
+# Overall CTR over time 
+
+final_stats_df %>%
+  filter(group_var == 'Overall') %>%
+  mutate(ctr = round(ctr, digits = 3)) %>%
+  ggplot(aes(x = nyt_file_order, y = ctr)) +
+    geom_line(stat = 'identity')
+
+# Average CTR by group
+final_stats_df %>%
+  group_by(grouping_by) %>%
+  summarise(avg_ctr = sum(sum_Clicks)/sum(sum_Impressions))
+
 
 
 
