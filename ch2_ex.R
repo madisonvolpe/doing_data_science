@@ -171,7 +171,11 @@ final_stats_df %>%
   group_by(grouping_by) %>%
   summarise(avg_ctr = sum(sum_Clicks)/sum(sum_Impressions))
 
-
+# Overall CTR by age group over time 
+final_stats_df %>%
+  filter(!grouping_by %in% c('Female', 'Male', 'Overall')) %>%
+  ggplot(aes(x = nyt_file_order, y = ctr, color = grouping_by)) +
+  geom_line()
 
 
 
