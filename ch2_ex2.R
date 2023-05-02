@@ -3,6 +3,7 @@ library(readxl)
 library(here)
 library(lubridate)
 library(janitor)
+library(gtsummary)
 
 mhn_dat <- readxl::read_xls(
   here("dds_datasets", "dds_ch2_rollingsales", "rollingsales_manhattan.xls"),
@@ -13,15 +14,15 @@ mhn_dat <- readxl::read_xls(
 # structure of dataset
 str(mhn_dat)
 
-# count of NA for each dataset 
+# count of NA for each column in dataset 
 na_cnt_cols <- map_df(mhn_dat, ~sum(is.na(.x)))
 
-mhn_dat <- mhn_dat %>%
-  mutate(
-    tax_class_at_present = factor(tax_class_at_present),
-    building_class_at_present = factor(building_class_at_present)
-    )
+#count of 0 for each column in dataset 
+  # n = 7593 observations have sale_price = 0, sale_date is not NA 
+zero_cnt_cols <- map_df(mhn_dat, ~sum(ifelse(.x == 0, 1,0), na.rm = T))
 
+
+# further exploring data (min, max, mean, median, sd) of continuous variables
 fun_list <- list(
   min = ~min(.x),
   max = ~max(.x),
@@ -31,5 +32,59 @@ fun_list <- list(
 )
 
 mhn_dat_stats <- mhn_dat %>%
-  summarise(across(12:16, fun_list)) %>%
-  pivot_longer(cols = everything())
+  summarise(across(c(12:16,20), fun_list)) %>%
+  pivot_longer(cols = everything()) %>%
+  mutate(value = round(value, 2))
+
+# explore data in different way using gt summary
+mhn_dat %>%
+  select(c(12:16, 20)) %>%
+  tbl_summary(
+    statistic = all_continuous() ~ '{mean},[{median}],({sd}), ({min} - {max})'
+  )
+
+# finding outliers in dataset 
+
+  # boxplots for all continuous variables 
+
+  #boxplots with outliers
+  map2(.x = select(mhn_dat, c(12:16, 20)), .y = names(select(mhn_dat, c(12:16,20))),
+      ~ggplot(mhn_dat, aes(y = .x)) +
+        geom_boxplot() +
+        ggtitle(paste("Boxplot of ", .y)))
+
+  #boxplots without outliers
+  map2(.x = select(mhn_dat, c(12:16,20)), .y = names(select(mhn_dat, c(12:16,20))),
+      ~ggplot(mhn_dat, aes(y = .x)) + 
+        geom_boxplot(outlier.shape = NA) + 
+        coord_cartesian(ylim = quantile(.x, c(0.1, 0.9))) +
+        ggtitle(paste("Boxplot of", .y, "(Without Outliers)"))
+        )
+  
+  # most likely variables like reisidential units, commerical units, total units,
+  # land_square_feet and gross_square_feet have many outliers and a weird distribution
+  # given the different types of housing in nyc
+  
+  # boxplots for sale_price by housing type 
+  
+  map(unique(mhn_dat$building_class_category), 
+      ~select(filter(mhn_dat, building_class_category == .x), c(12:16, 20))) %>%
+    set_names(unique(mhn_dat$building_class_category)) %>%
+    keep(., ~nrow(.x) >= 30) %>% # only keep housing types with at least 30 observations
+    imap(.,
+        ~select(.x, "sale_price") %>%
+          ggplot(., aes(y = sale_price)) + 
+          geom_boxplot() +
+          ggtitle(.y)
+        )
+  
+
+  
+  
+# Final clean dataset (factor variables, assign Date)
+mhn_dat <- mhn_dat %>%
+  mutate(
+    tax_class_at_present = factor(tax_class_at_present),
+    building_class_at_present = factor(building_class_at_present),
+    sale_date = ymd(sale_date)
+  )
