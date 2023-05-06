@@ -45,6 +45,25 @@ mhn_dat %>%
 
 # finding outliers in dataset 
 
+  # histograms of all continuous variables
+
+  map2(.x = select(mhn_dat, c(12:16, 20)), .y = names(select(mhn_dat, c(12:16,20))),
+     ~ggplot(mhn_dat, aes(x = .x)) +
+       geom_histogram() +
+       ggtitle(paste("Histogram of ", .y)))
+  
+  # histograms of all continuous variables with log transformation
+    # note some cts variables have 0 values so removing 0 values
+  map2(.x = select(mhn_dat, c(12:16, 20)) %>% 
+         filter(if_all(everything(), ~. > 0)) %>%
+         mutate(across(everything(), log)), 
+       .y = names(select(mhn_dat, c(12:16,20))),
+       ~ggplot(
+         mhn_dat %>% select(c(12:16, 20)) %>% filter(if_all(everything(), ~. >0))
+         , aes(x = .x)) + 
+                 geom_histogram() +
+                 ggtitle(paste("Histogram of log ", .y)))
+
   # boxplots for all continuous variables 
 
   #boxplots with outliers
@@ -73,18 +92,28 @@ mhn_dat %>%
     keep(., ~nrow(.x) >= 30) %>% # only keep housing types with at least 30 observations
     imap(.,
         ~select(.x, "sale_price") %>%
+          filter(sale_price > 0) %>%
+          mutate(sale_price = log(sale_price)) %>%
           ggplot(., aes(y = sale_price)) + 
           geom_boxplot() +
           ggtitle(.y)
         )
   
 
-  
-  
 # Final clean dataset (factor variables, assign Date)
-mhn_dat <- mhn_dat %>%
+mhn_dat_clean <- mhn_dat %>%
   mutate(
     tax_class_at_present = factor(tax_class_at_present),
     building_class_at_present = factor(building_class_at_present),
-    sale_date = ymd(sale_date)
-  )
+    sale_date = ymd(sale_date),
+    log_sale_price = log(sale_price)
+  ) %>%
+  filter(sale_price > 0)
+
+mhn_dat_clean %>%
+  ggplot(aes(x = sale_date, y = sale_price, col = neighborhood)) +
+    geom_point() 
+
+# sale_price + neighborhood (better group neighborhoods)
+# sale_price_log
+# sale_price facet_grid by specific housing types
