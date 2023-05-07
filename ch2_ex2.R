@@ -67,18 +67,19 @@ mhn_dat %>%
   # boxplots for all continuous variables 
 
   #boxplots with outliers
-  map2(.x = select(mhn_dat, c(12:16, 20)), .y = names(select(mhn_dat, c(12:16,20))),
-      ~ggplot(mhn_dat, aes(y = .x)) +
-        geom_boxplot() +
-        ggtitle(paste("Boxplot of ", .y)))
-
+  mhn_dat %>%
+    select(c(12:16, 20)) %>%
+    imap(., ~ggplot(mhn_dat, aes(y = .x)) +
+         geom_boxplot() +
+         ggtitle(paste("Boxplot of ", .y)))
+  
   #boxplots without outliers
-  map2(.x = select(mhn_dat, c(12:16,20)), .y = names(select(mhn_dat, c(12:16,20))),
-      ~ggplot(mhn_dat, aes(y = .x)) + 
-        geom_boxplot(outlier.shape = NA) + 
-        coord_cartesian(ylim = quantile(.x, c(0.1, 0.9))) +
-        ggtitle(paste("Boxplot of", .y, "(Without Outliers)"))
-        )
+  mhn_dat %>%
+    select(c(12:16, 20)) %>%
+    imap(., ~ggplot(mhn_dat, aes(y = .x))+
+           geom_boxplot(outlier.shape = NA) + 
+           coord_cartesian(ylim = quantile(.x, c(0.1, 0.9))) +
+           ggtitle(paste("Boxplot of", .y, "(Without Outliers)")))
   
   # most likely variables like reisidential units, commerical units, total units,
   # land_square_feet and gross_square_feet have many outliers and a weird distribution
@@ -106,14 +107,59 @@ mhn_dat_clean <- mhn_dat %>%
     tax_class_at_present = factor(tax_class_at_present),
     building_class_at_present = factor(building_class_at_present),
     sale_date = ymd(sale_date),
-    log_sale_price = log(sale_price)
-  ) %>%
+    log_sale_price = log(sale_price),
+    neighborhood_group = 
+      case_when(
+        str_detect(neighborhood,"^UPPER EAST SIDE") ~ "UPPER EAST SIDE",
+        str_detect(neighborhood, "^UPPER WEST SIDE") ~ "UPPER WEST SIDE",
+        str_detect(neighborhood, "^HARLEM") ~ "HARLEM",
+        str_detect(neighborhood, "^MIDTOWN") ~ "MIDTOWN",
+        str_detect(neighborhood, "^WASHINGTON") ~ "WASHINGTON HEIGHTS",
+        TRUE ~ neighborhood),
+    neighborhood_condensed = 
+      case_when(
+        neighborhood %in% c(
+          'MORNINGSIDE HEIGHTS', 'HARLEM-CENTRAL', 'HARLEM-EAST', 'HARLEM-UPPER',
+          'HARLEM-WEST', 'INWOOD', 'MANHATTAN VALLEY', 'UPPER EAST SIDE (59-79)',
+          'UPPER EAST SIDE (79-96)', 'UPPER EAST SIDE (96-110)',
+          'UPPER WEST SIDE (59-79)', 'UPPER WEST SIDE (79-96)',
+          'UPPER WEST SIDE (96-116)', 'WASHINGTON HEIGHTS LOWER',
+          'WASHINGTON HEIGHTS UPPER'
+        ) ~ 'Upper Manhattan',
+        neighborhood %in% c(
+          'ALPHABET CITY', 'CHINATOWN', 'CIVIC CENTER', 'EAST VILLAGE',
+          'FINANCIAL', 'GREENWICH VILLAGE-CENTRAL', 'GREENWICH VILLAGE-WEST',
+          'LITTLE ITALY', 'LOWER EAST SIDE', 'SOHO', 'SOUTHBRIDGE',
+          'TRIBECA'
+        ) ~ 'Lower Manhattan',
+        neighborhood %in% c(
+          'CLINTON', 'FASHION','JAVITS CENTER', 'MIDTOWN CBD', 
+          'MIDTOWN EAST', 'MIDTOWN WEST', 'MURRAY HILL'
+        ) ~ 'Midtown',
+        neighborhood %in% c(
+          'CHELSEA', 'FLATIRON', 'GRAMERCY', 'KIPS BAY'
+        ) ~ 'Between Midtown and Lower Manhattan',
+        TRUE ~ neighborhood
+      )) %>%
   filter(sale_price > 0)
 
 mhn_dat_clean %>%
   ggplot(aes(x = sale_date, y = sale_price, col = neighborhood)) +
     geom_point() 
 
-# sale_price + neighborhood (better group neighborhoods)
-# sale_price_log
-# sale_price facet_grid by specific housing types
+mhn_dat_clean %>%
+  ggplot(aes(x = sale_date, y = sale_price, col = neighborhood_condensed)) +
+  geom_point()
+
+mhn_dat_clean %>%
+  ggplot(aes(x = sale_date, y = sale_price)) +
+  geom_point()+
+  facet_grid(~neighborhood_condensed)
+
+mhn_dat_clean %>%
+  ggplot(aes(x = sale_date, y = log_sale_price, col = building_class_category)) +
+  geom_point() +
+  facet_wrap(~neighborhood_condensed, nrow = 2) +
+  theme(legend.position = "none")
+
+
