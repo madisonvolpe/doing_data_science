@@ -162,4 +162,30 @@ mhn_dat_clean %>%
   facet_wrap(~neighborhood_condensed, nrow = 2) +
   theme(legend.position = "none")
 
+map(unique(mhn_dat_clean$building_class_category), 
+    ~ mhn_dat_clean %>%
+      filter(building_class_category == .x)
+    ) %>%
+  set_names(unique(mhn_dat_clean$building_class_category)) %>%
+  keep(., ~nrow(.x) > 30) %>%
+  imap(
+    .,
+    ~ggplot(.x,aes(x = sale_date, y = log_sale_price)) +
+      geom_point() +
+      facet_wrap(~neighborhood_condensed, nrow = 2) +
+      ggtitle(.y)
+  )
 
+map(unique(mhn_dat_clean$building_class_category), 
+    ~ mhn_dat_clean %>%
+      filter(building_class_category == .x)
+) %>%
+  set_names(unique(mhn_dat_clean$building_class_category)) %>%
+  keep(., ~nrow(.x) > 30) %>%
+  imap(
+    .,
+    ~ggplot(.x,aes(x = sale_date, y = sale_price)) +
+      geom_point() +
+      facet_wrap(~neighborhood_condensed, nrow = 2) +
+      ggtitle(.y)
+  )
